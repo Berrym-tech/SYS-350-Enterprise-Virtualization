@@ -1,0 +1,81 @@
+from pyVim import connect
+from pyVmomi import vim
+import atexit
+import requests
+import re
+
+# Read VMware username and vCenter hostname from a file
+with open('config.txt', 'r') as file:
+    lines = file.readlines()
+    username = lines[0].strip()
+    vcenter_host = lines[1].strip()
+
+# Connect to vCenter server
+def connect_to_vcenter(host, user, password):
+    service_instance = connect.SmartConnectNoSSL(host=host, user=user, pwd=password)
+    atexit.register(connect.Disconnect, service_instance)
+    return service_instance
+
+# Get current user domain/username and source IP address
+def get_user_and_ip():
+    response = requests.get('https://api64.ipify.org?format=json')
+    ip_address = response.json()['ip']
+    domain_username = re.sub(r'\\', '/', username)
+    return domain_username, ip_address
+
+# Search function to filter VMs by name
+def search_vms(si, vm_name_filter=None):
+    content = si.RetrieveContent()
+    container = content.rootFolder
+    viewType = [vim.VirtualMachine]
+    recursive = True
+    vm_view = content.viewManager.CreateContainerView(container, viewType, recursive)
+    vms = vm_view.view
+
+    filtered_vms = []
+    for vm in vms:
+        if not vm_name_filter or vm_name_filter.lower() in vm.name.lower():
+            filtered_vms.append(vm)
+    return filtered_vms
+
+# Get VM metadata
+def get_vm_metadata(vm):
+    ip_address = vm.guest.ipAddress
+    if ip_address is None:
+        ip_address = "N/A (VMware Tools not running)"
+    return {
+        'VM Name': vm.name,
+        'Power State': vm.runtime.powerState,
+        'Number of CPUs': vm.config.hardware.numCPU,
+        'Memory in GB': vm.config.hardware.memoryMB / 1024,
+        'IP Address': ip_address
+    }
+
+# Main function
+def main():
+    try:
+        # Connect to vCenter server
+        service_instance = connect_to_vcenter(vcenter_host, username, 'your_password')
+
+        # Get user and IP address
+        domain_username, source_ip = get_user_and_ip()
+
+        # Print connection information
+        print("Domain/Username: {}".format(domain_username))
+        print("Source IP Address: {}".format(source_ip))
+        print("vCenter Server: {}".format(vcenter_host))
+
+        # Search for VMs and print metadata
+        vm_name_filter = input("Enter VM name filter (or leave blank for all VMs): ")
+        vms = search_vms(service_instance, vm_name_filter)
+        for vm in vms:
+            vm_metadata = get_vm_metadata(vm)
+            print("\nVM Metadata:")
+            for key, value in vm_metadata.items():
+                print("{}: {}".format(key, value))
+
+    except Exception as e:
+        print("Error: {}".format(e))
+
+if __name__ == "__main__":
+    main()
