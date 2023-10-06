@@ -1,0 +1,22 @@
+def search_vms_by_name(service_instance, search_key=None):
+    """
+    Search VMs in vCenter by name.
+
+    Args:
+        service_instance: ServiceInstance object connected to vCenter.
+        search_key (str, optional): Search key for filtering VMs by name. Defaults to None.
+
+    Returns:
+        list: List of VM objects matching the search criteria.
+    """
+    content = service_instance.content
+    vm_view = content.viewManager.CreateContainerView(content.rootFolder, [vim.VirtualMachine], True)
+    vms = vm_view.view
+
+    if search_key:
+        filtered_vms = [vm for vm in vms if search_key.lower() in vm.name.lower()]
+    else:
+        filtered_vms = vms
+
+    vm_view.Destroy()  # Destroy the view to release resources
+    return filtered_vms
