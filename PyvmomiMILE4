@@ -3,18 +3,15 @@ import json
 from pyVim.connect import SmartConnect, Disconnect
 from os.path import realpath, dirname
 import ssl
-
 def establish_connection(vcenter, username, password):
     context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
     context.verify_mode = ssl.CERT_NONE
-
     try:
         si = SmartConnect(host=vcenter, user=username, pwd=password, sslContext=context)
         return si
     except Exception as e:
-        print(f"Failed to connect to vCenter: {e}")
+        print(f"Unable to connect to Vcenter Server {e}")
         return None
-
 def print_vm_info(vm):
     print("---")
     print(f"VM Name: {vm.name}")
@@ -22,35 +19,28 @@ def print_vm_info(vm):
     print(f"VM CPU number: {vm.summary.config.numCpu}")
     print(f"VM MemoryGB: {vm.summary.config.memorySizeMB / 1000}")
     print(f"VM Primary IP: {vm.guest.ipAddress}")
-
 if __name__ == "__main__":
     script_directory = dirname(realpath(__file__))
-    passw = getpass.getpass("Enter your password: ")
-
+    passw = getpass.getpass("Enter Password: ")
     with open(f"{script_directory}/vars.json", "r") as v:
         user_vars = json.loads(v.read())
-
     vcenter_host = user_vars["vcenter"]
     username = user_vars["username"]
-
     service_instance = establish_connection(vcenter_host, username, passw)
     if service_instance:
         try:
             session = service_instance.content.sessionManager.currentSession
             vm_folders = service_instance.content.rootFolder.childEntity[0].vmFolder.childEntity
-
-            print(f"Current session information\nuser={session.userName}\nsourceip={session.ipAddress}\nvcenterip={vcenter_host}")
-
-            user_search_key = input('Please enter a search key for VM name: ')
+            print(f"Session Info\nuser={session.userName}\nsourceip={session.ipAddress}\nvcenterip={vcenter_host}")
+            user_search_key = input('Search Key for VMs')
             if user_search_key:
-                vm_list = [vm for folder in vm_folders for vm in folder.childEntity if user_search_key in vm.name]
+               vm_list = [vm for folder in vm_folders for vm in folder.childEntity if user_search_key in vm.name]
             else:
                 vm_list = [vm for folder in vm_folders for vm in folder.childEntity]
-
-            print("==VMs that match your key==")
+            print("VM Key")
             for vm in vm_list:
                 print_vm_info(vm)
         finally:
             Disconnect(service_instance)
     else:
-        print("Failed to establish connection to vCenter.")
+        print("Unable to connect to Vcenter")
