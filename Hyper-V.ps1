@@ -69,7 +69,7 @@ if ($selection -ge 1 -and $selection -le $VMs.Count) {
                     }
                 }
                 default {
-                    Write-Host "Invalid switch selection"
+                    Write-Host "Invalid selection"
                 }
             }
         }
@@ -109,6 +109,10 @@ if ($selection -ge 1 -and $selection -le $VMs.Count) {
                     $newCPUCount = Read-Host "Enter the new CPU count"
                     $confirmChange = Read-Host "Do you want to change the CPU count of '$selectedVMName' to '$newCPUCount'? (Y/N)"
 
+                    if ($vmState -eq "Running") {
+                        Write-Host "Turning off the virtual machine '$selectedVMName'..."
+                        Stop-VM -Name $selectedVMName -Force
+                    }
                     if ($confirmChange -eq "Y" -or $confirmChange -eq "y") {
                         try {
                             Set-VMProcessor -VMName $selectedVMName -Count $newCPUCount -ErrorAction Stop
@@ -118,6 +122,11 @@ if ($selection -ge 1 -and $selection -le $VMs.Count) {
                         }
                     } else {
                         Write-Host "CPU count change canceled."
+                    }
+
+                    if ($vmState -eq "Running") {
+                        Write-Host "Turning on the virtual machine '$selectedVMName'..."
+                        Start-VM -Name $selectedVMName
                     }
                 }
                 default {
